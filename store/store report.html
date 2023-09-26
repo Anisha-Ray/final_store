@@ -1,0 +1,151 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <title>store report</title>
+   <link rel="stylesheet" type="text/css" href="store report.css">
+   <script src="firebase-app.js"></script>
+   <script src="firebase-database.js"></script>
+   
+</head>
+<body>
+  <h1>Store Report</h1>
+  <table border="1">
+      <thead>
+          <tr>
+              <th>User Email</th>
+              <th>Date</th>
+              <th>Visited URL</th>
+              <th>Total Duration (HH:MM:SS)</th>
+              <th>Tab Clicks</th>
+          </tr>
+      </thead>
+      <tbody id="report-body"></tbody>
+  </table>
+
+<script>
+     var firebaseConfig = {
+    apiKey: "AIzaSyBqaPR0wVUXYnD1KUhaeTXT2RlfUWvK_n8",
+    authDomain: "chrome-store-1f206.firebaseapp.com",
+    databaseURL: "https://chrome-store-1f206-default-rtdb.firebaseio.com",
+    projectId: "chrome-store-1f206",
+    storageBucket: "chrome-store-1f206.appspot.com",
+    assmessagingSenderId: "66744701444",
+    appId: "1:66744701444:web:570a5ed9a2105663859b51"
+  };
+
+  
+firebase.initializeApp(firebaseConfig);
+var database = firebase.database();
+
+var db = database.ref('user');
+
+        db.once('value')
+            .then(snapshot => {
+                const misData = processData(snapshot.val());
+                displayMISReport(misData);
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+            });
+
+        function processData(data) {
+            const misData = {};
+
+            for (const userId in data) {
+                const user = data[userId];
+                const userEmail = user.email;
+
+                for (const urlKey in user.urls) {
+                    const urlInfo = user.urls[urlKey];
+
+                    if (urlInfo.visits) {
+                        urlInfo.visits.forEach(visit => {
+                            const visitDate = visit.date;
+
+                            if (!misData[userId]) {
+                                misData[userId] = {};
+                            }
+                            if (!misData[userId][visitDate]) {
+                                misData[userId][visitDate] = {
+                                    email: userEmail,
+                                    uniqueURLData: {}, // Store unique URL data for each date
+                                };
+                            }
+
+                            if (!misData[userId][visitDate].uniqueURLData[visit.url]) {
+                                misData[userId][visitDate].uniqueURLData[visit.url] = {
+                                    totalDuration: 0,
+                                    clickCount: 0,
+                                };
+                            }
+
+                            misData[userId][visitDate].uniqueURLData[visit.url].totalDuration +=
+                                parseDuration(visit.duration);
+                            misData[userId][visitDate].uniqueURLData[visit.url].clickCount +=
+                                visit.clickCount;
+                        });
+                    }
+                }
+            }
+
+            return misData;
+        }
+
+        function parseDuration(durationStr) {
+            const [hours, minutes, seconds] = durationStr.split(':');
+            return (parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds)) * 1000;
+        }
+
+        function displayMISReport(misData) {
+            const reportBody = document.getElementById('report-body');
+
+            for (const userId in misData) {
+                for (const date in misData[userId]) {
+                    const report = misData[userId][date];
+                    const userEmail = report.email;
+
+                    for (const url in report.uniqueURLData) {
+                        const urlData = report.uniqueURLData[url];
+
+                        const row = createTableRow([
+                            userEmail,
+                            date,
+                            url,
+                            formatDuration(urlData.totalDuration),
+                            urlData.clickCount,
+                        ]);
+
+                        reportBody.appendChild(row);
+                    }
+                }
+            }
+        }
+
+        function createTableRow(data) {
+            const row = document.createElement('tr');
+            data.forEach(item => {
+                const cell = document.createElement('td');
+                cell.textContent = item;
+                row.appendChild(cell);
+            });
+            return row;
+        }
+
+        function formatDuration(duration) {
+            var date = new Date(duration);
+
+            var hours = Math.floor(duration / (1000 * 60 * 60));
+            var minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
+            var seconds = Math.floor((duration % (1000 * 60)) / 1000);
+
+            return padZero(hours) + ':' + padZero(minutes) + ':' + padZero(seconds);
+        }
+
+        function padZero(number) {
+            return (number < 10 ? '0' : '') + number;
+        }
+    </script>
+</body>
+</html>
